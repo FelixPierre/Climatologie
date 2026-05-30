@@ -81,12 +81,7 @@ def download_resource(resource, metadata):
     if resource['type'] == 'main':
         base_download_path = os.path.join(base_download_path, 'data')
         target_format = 'parquet'
-        # Take parquet url if possible
-        parquet_url = resource.get('extras', {}).get('analysis:parsing:parquet_url')
-        if parquet_url:
-            url = parquet_url
-        else:
-            need_parquet_convertion = True
+        need_parquet_convertion = True
     elif resource['type'] == 'documentation':
         base_download_path = os.path.join(base_download_path, 'doc')
 
@@ -95,11 +90,6 @@ def download_resource(resource, metadata):
         resource['id'] + ''.join(Path(url).suffixes)
     )
     final_path = os.path.join(base_download_path, title + f'.{target_format}')
-
-    # if os.path.exists(final_path):
-    #     return(
-    #         "[SKIP] "
-    #         f"{os.path.basename(final_path)}"
 
     if os.path.exists(final_path):
         if metadata.get(title) != checksum:
