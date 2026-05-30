@@ -1,0 +1,9 @@
+climatology:
+  outputs:
+    dev:
+      type: duckdb
+      path: "../{{ env_var('DUCKDB_DATABASE_PATH') }}"
+      schema: main
+      threads: 4
+
+  target: dev

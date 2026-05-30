@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "bs4>=0.0.2",
+    "dbt-core>=1.11.11",
+    "dbt-duckdb>=1.10.1",
     "duckdb>=1.5.3",
     "pandas>=3.0.3",
     "requests>=2.34.2",
