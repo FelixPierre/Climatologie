@@ -1,0 +1,10 @@
+version: 2
+sources:
+  - name: meteo_france_quot
+    tables:
+      - name: rr_t_vent
+        config:
+          external_location: "../dataset/datagouv_meteo_france_quot/data/*RR-T-Vent.parquet"
+      - name: autres_parametres
+        config:
+          external_location: "../dataset/datagouv_meteo_france_quot/data/*autres-parametres.parquet"
