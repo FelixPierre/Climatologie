@@ -106,7 +106,7 @@ def download_resource(resource, metadata, download_dir):
             os.remove(final_path)
         else:
             # Skip file
-            logger.error(f"[SKIP] {title}")
+            logger.info(f"[SKIP] {title}")
             return ResourceStatus.SKIP
     
     try:
@@ -124,7 +124,7 @@ def download_resource(resource, metadata, download_dir):
         return ResourceStatus.ERROR
     
     metadata[title] = checksum
-    logger.error(f"[OK] {title}")
+    logger.info(f"[OK] {title}")
     return ResourceStatus.OK
 
 
@@ -167,7 +167,15 @@ def main(dataset_id, download_dir):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename=f'logs/datagouv_scraper.log', encoding='utf-8', level=logging.INFO)
+    os.makedirs('logs', exist_ok=True)
+    logging.basicConfig(
+        filename=f'logs/datagouv_scraper.log',
+        filemode='w',
+        encoding='utf-8',
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
     datasets = [
         {
             'id': '6569b51ae64326786e4e8e1a',
