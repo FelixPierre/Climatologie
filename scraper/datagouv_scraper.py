@@ -3,18 +3,25 @@ import requests
 import duckdb
 from pathlib import Path
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+from enum import Enum
 
-
-# DATASET_ID = "6569b4473bedf2e7abad3b72" # Données climatologiques de base - horaire
-DATASET_ID = "6569b51ae64326786e4e8e1a" # Données climatologiques de base - quotidiennes
-DOWNLOAD_DIR = "dataset/datagouv_meteo_france_quot"
-
+MAX_WORKERS = 8
 TIMEOUT = 60
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+class ResourceStatus(Enum):
+    OK = 1
+    SKIP = 2
+    ERROR = 3
+
+
+logger = logging.getLogger()
 session = requests.Session()
 session.headers.update(HEADERS)
 
@@ -70,13 +77,14 @@ def download_stream(url, out_path):
     os.rename(tmp_path, out_path)
 
 
-def download_resource(resource, metadata):
-    base_download_path = DOWNLOAD_DIR
+def download_resource(resource, metadata, download_dir):
+    base_download_path = download_dir
     need_parquet_convertion = False
     target_format = resource['format']
     url = resource['url']
     title, _ = os.path.splitext(resource['title'])
-    checksum = resource['extras']['analysis:checksum']
+    checksum = resource['extras'].get('analysis:checksum')
+    logger.info(f"Downloading resource {title}")
 
     if resource['type'] == 'main':
         base_download_path = os.path.join(base_download_path, 'data')
@@ -92,39 +100,32 @@ def download_resource(resource, metadata):
     final_path = os.path.join(base_download_path, title + f'.{target_format}')
 
     if os.path.exists(final_path):
-        if metadata.get(title) != checksum:
+        if metadata.get(title) != checksum or not checksum:
             # Update file
-            print(f'updating')
+            logger.info(f'Updating {title}')
             os.remove(final_path)
         else:
-            # Skip
-            return(
-                "[SKIP] "
-                f"{os.path.basename(final_path)}"
-            )
+            # Skip file
+            logger.error(f"[SKIP] {title}")
+            return ResourceStatus.SKIP
     
     try:
         download_stream(url, download_path)
 
         if need_parquet_convertion:
-            print(f'converting to parquet : {download_path}')
+            logger.info(f'Converting {title} to parquet')
             convert_to_parquet(download_path)
             download_path = download_path.replace('.csv.gz', '.parquet')
         
         # Rename to resource title
         os.rename(download_path, final_path)
     except Exception as e:
-        return (
-            "[ERR] "
-            f"{os.path.basename(final_path)}"
-            f"\n{e}"
-        )
+        logger.error(f"[ERROR] {title}: {e}")
+        return ResourceStatus.ERROR
     
     metadata[title] = checksum
-    return (
-        "[OK] "
-        f"{os.path.basename(final_path)}"
-    )
+    logger.error(f"[OK] {title}")
+    return ResourceStatus.OK
 
 
 def load_metadata(metadata_file):
@@ -142,19 +143,41 @@ def save_metadata(metadata, metadata_file):
 def main(dataset_id, download_dir):
     os.makedirs(download_dir, exist_ok=True)
     dataset = session.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/", timeout=TIMEOUT).json()
+    # with open(f'dataset/{dataset_id}.json') as f:
+    #     dataset = json.load(f)
     resources = dataset["resources"]
-    print(f"Found {len(resources)} resources")
+    print(f"Downloading {dataset['page']}")
+    logger.info(f"Downloading {dataset['page']}")
+    logger.info(f"Found {len(resources)} resources")
 
     metadata_file = os.path.join(download_dir, 'dataset.meta')
     metadata = load_metadata(metadata_file)
 
-    for r in resources:
-        print(f'Downloading {r['title']}')
-        ret = download_resource(r, metadata)
-        print(ret)
-
-    save_metadata(metadata, metadata_file)
+    try:
+        progress_bar = tqdm(total=len(resources))
+        # Download in parallel
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = [executor.submit(download_resource, r, metadata, download_dir) for r in resources]
+            for _ in as_completed(futures):
+                progress_bar.update(1)
+    except Exception:
+        raise
+    finally:
+        save_metadata(metadata, metadata_file) # always save metadata
 
 
 if __name__ == '__main__':
-    main(DATASET_ID, DOWNLOAD_DIR)
+    logging.basicConfig(filename=f'logs/datagouv_scraper.log', encoding='utf-8', level=logging.INFO)
+    datasets = [
+        {
+            'id': '6569b51ae64326786e4e8e1a',
+            'download_path': 'dataset/meteo_france_quot',
+        },
+        {
+            'id': '6569b4473bedf2e7abad3b72',
+            'download_path': 'dataset/meteo_france_hor',
+        },
+    ]
+
+    for dataset in datasets:
+        main(dataset['id'], dataset['download_path'])
