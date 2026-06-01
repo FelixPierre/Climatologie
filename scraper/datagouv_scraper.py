@@ -161,6 +161,8 @@ def main(dataset_id, download_dir):
             for _ in as_completed(futures):
                 progress_bar.update(1)
     except Exception:
+        for future in futures:
+            future.cancel()
         raise
     finally:
         save_metadata(metadata, metadata_file) # always save metadata
