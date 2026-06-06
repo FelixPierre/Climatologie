@@ -4,7 +4,12 @@ sources:
     tables:
       - name: rr_t_vent
         config:
-          external_location: "../dataset/datagouv_meteo_france_quot/data/*RR-T-Vent.parquet"
+          external_location: "../dataset/meteo_france_quot/data/*RR-T-Vent.parquet"
       - name: autres_parametres
         config:
-          external_location: "../dataset/datagouv_meteo_france_quot/data/*autres-parametres.parquet"
+          external_location: "../dataset/meteo_france_quot/data/*autres-parametres.parquet"
+  # - name: meteo_france_hor
+  #   tables:
+  #     - name: data
+  #       config:
+  #         external_location: "../dataset/meteo_france_hor/data/*.parquet"
